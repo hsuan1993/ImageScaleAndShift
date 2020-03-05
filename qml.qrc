@@ -2,5 +2,6 @@
     <qresource prefix="/">
         <file>main.qml</file>
         <file>image/398529.jpg</file>
+        <file>StretchableRec.qml</file>
     </qresource>
 </RCC>
