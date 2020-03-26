@@ -126,6 +126,9 @@ Window {
             anchors.fill: parent //viewRec
             enabled: bCanDrawZone?true:false
             z: 10
+            Component.onCompleted: {
+                ctrl.readPolygonINIFile();
+            }
         }
 
         Image {

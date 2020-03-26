@@ -4,6 +4,36 @@ Item {
     id: polygon4
 
     Connections {
+        target: ctrl
+        onReloadROIInfo: {
+            polygonCanvas.polygonPoints = [];
+            polygonCanvas.polyPointCount = 0;
+
+            if (roiList.length > 0) {
+                var pointNumber = Number(roiList[0]);
+                for (var i=0; i<pointNumber; i++) {
+                    var itemDetail = roiList[i+1].split(" "); //start from the second
+                    var xPos = Number(itemDetail[0]);
+                    var yPos = Number(itemDetail[1]);
+                    polygonCanvas.polygonPoints.push({x:xPos,y:yPos});
+                }
+                polygonCanvas.polyPointCount = pointNumber;
+            }
+
+            //redraw rectangle
+            polygonCanvas.paintType = -1;
+            polygonCanvas.polygonMouseLastPointX = -1;
+            polygonCanvas.polygonMouseLastPointY = -1;
+            polygonSession.needClearRect = true;
+            polygonSession.clearUndefined = true;
+            polygonSession.requestPaint();
+            polygonCanvas.bClear = true;
+            polygonCanvas.bModification = false;
+            polygonCanvas.requestPaint();
+        }
+    }
+
+    Connections {
         target: mainWindow
         onImgScaleChanged: {
             polygonCanvas.paintType = -1;
@@ -101,14 +131,9 @@ Item {
                         ctx.fillStyle = notationColor;
                         var fontPixelSize = 20 / imgScale;
                         ctx.font = fontPixelSize + "px 'Calibri light'";
-                        //ctx.fillText(ctrl.getRectIDMap((Math.floor(i/4))).toString(), (realX1 + realX2)/2 , (realY1 + realY2)/2);
-                        ctx.fillText("test", (realX1 + realX2)/2 , (realY1 + realY2)/2);
+                        ctx.fillText(ctrl.getRectIDMap((Math.floor(i/4))).toString(), (realX1 + realX2)/2 , (realY1 + realY2)/2);
                     }
                 }
-//                if (polygonCanvas.bRedrawMask) {
-//                    ctrl.drawPolygonMask(-1, 1);
-//                    polygonCanvas.bRedrawMask = false;
-//                }
             }
 
             if (clearUndefined) {
@@ -302,23 +327,26 @@ Item {
                         polygonCanvas.polyPointCount++;
                         if (polygonCanvas.polyPointCount>=2 && (polygonCanvas.polyPointCount%4)!=1) {
                             if(polygonCanvas.polyPointCount%4 == 0){ //fourth time
-                                polygonCanvas.currentRegionNumber = (polygonCanvas.polyPointCount/4) -1; //rect id
-                                /* //check rect id conflict
-                                var targetID  = ctrl.showInputRectNumberDialog(polygonCanvas.polyPointCount/4);
-                                if (targetID < 0) {
-                                    targetID = polygonCanvas.currentRegionNumber;
-                                }
+                                // rect id
+                                polygonCanvas.currentRegionNumber = (polygonCanvas.polyPointCount/4) -1;
+                                var targetID = ploygonCanvas.polyPointCount/4;
+                                // show text input window
+                                //var targetID  = ctrl.showInputRectNumberDialog(polygonCanvas.polyPointCount/4);
+                                //if (targetID < 0) {
+                                //    targetID = polygonCanvas.currentRegionNumber;
+                                //}
+                                // check rectangle id conflict
                                 while (ctrl.getRectNoMap(targetID)!== -1) {
                                     console.log("Rect ID conflict: "+targetID);
                                     targetID++;
                                 }
-                                */
-                                //ctrl.setRectIDMap(polygonCanvas.currentRegionNumber, targetID);
+                                ctrl.setRectIDMap(polygonCanvas.currentRegionNumber, targetID);
                                 polygonCanvas.polygonMouseLastPointX = -1;
                                 polygonCanvas.polygonMouseLastPointY = -1;
                                 polygonCanvas.bClear = true;
                                 polygonCanvas.paintType = 4;
                                 polygonCanvas.requestPaint();
+                                //update points
                                 ctrl.addPolygon4(Qt.point(polygonCanvas.polygonPoints[polygonCanvas.polyPointCount-4].x, polygonCanvas.polygonPoints[polygonCanvas.polyPointCount-4].y),
                                                  Qt.point(polygonCanvas.polygonPoints[polygonCanvas.polyPointCount-3].x, polygonCanvas.polygonPoints[polygonCanvas.polyPointCount-3].y),
                                                  Qt.point(polygonCanvas.polygonPoints[polygonCanvas.polyPointCount-2].x, polygonCanvas.polygonPoints[polygonCanvas.polyPointCount-2].y),
