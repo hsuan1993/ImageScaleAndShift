@@ -3,5 +3,6 @@
         <file>main.qml</file>
         <file>image/398529.jpg</file>
         <file>StretchableRec.qml</file>
+        <file>Polygon4.qml</file>
     </qresource>
 </RCC>

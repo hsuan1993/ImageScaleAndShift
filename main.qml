@@ -2,11 +2,16 @@ import QtQuick 2.0
 import QtQuick.Window 2.2
 
 Window {
+    id: mainWindow
     visible: true
     width: 800*2
     height: 700
     title: qsTr("Image Scale & Shift")
+    property string yuanGreen: "#98c135"
     property double imgScale: 1
+    property bool bCanDrawZone: false
+    property var currentImgX: 0
+    property var currentImgY: 0
 
     //method 1
     Rectangle{
@@ -47,6 +52,27 @@ Window {
         contentY:(myContent.height/200)*testRec1.y
     }
 
+    //draw zone button
+    Rectangle {
+        id: rectAILableing
+        anchors.top: parent.top; anchors.topMargin: 10; anchors.right: parent.right; anchors.rightMargin: 10
+        height: 30 ; width: 120 ; color: "transparent"; border.width: 1;
+        border.color: maAILableing.containsMouse? yuanGreen : (bCanDrawZone?yuanGreen:"black")
+        Text {
+            anchors.centerIn: parent
+            font.pixelSize: Math.floor(parent.height *0.6)
+            color: maAILableing.containsMouse? yuanGreen : (bCanDrawZone?yuanGreen:"black")
+            text: "Draw Zone"
+        }
+        MouseArea {
+            id: maAILableing
+            anchors.fill: parent
+            hoverEnabled: true
+            onClicked: {
+                bCanDrawZone = !bCanDrawZone;
+            }
+        }
+    }
 
     //method 2
     Text {
@@ -66,6 +92,10 @@ Window {
         anchors.rightMargin: 10
         anchors.bottom: viewRec.bottom
         color: "black"
+        Image {
+            anchors.fill: parent
+            source: livePreview.source
+        }
 
         Rectangle {
             id: view
@@ -73,8 +103,8 @@ Window {
             height: parent.height
             color: "gray"
             opacity: 0.5
-            border.color: "gainsboro"
-            border.width: 3
+//            border.color: "gainsboro"
+//            border.width: 3
             x:0
             y:0
         }
@@ -91,6 +121,13 @@ Window {
         color: "black"
         clip: true
 
+        Polygon4 {
+            id: polygon4
+            anchors.fill: parent //viewRec
+            enabled: bCanDrawZone?true:false
+            z: 10
+        }
+
         Image {
             id:livePreview
             width:parent.width
@@ -102,37 +139,42 @@ Window {
 
             function updateDragPosition(triggerX, triggerY) {
                 if ((livePreview.width) > viewRec.width || livePreview.height > viewRec.height) {
-                    let xGap = (livePreview.width - livePreview.paintedWidth) / 2;
-                    let yGap = (livePreview.height - livePreview.paintedHeight) / 2;
-                    if (triggerX === -1) triggerX = -xGap;
-                    if (triggerY === -1) triggerY = -yGap;
+//                    let xGap = (livePreview.width - livePreview.paintedWidth) / 2;
+//                    let yGap = (livePreview.height - livePreview.paintedHeight) / 2;
+//                    if (triggerX === -1) triggerX = -xGap;
+//                    if (triggerY === -1) triggerY = -yGap;
+                    var xGap = 0;
+                    var yGap = 0;
                     mapDragArea.drag.axis = Drag.XAndYAxis
                     mapDragArea.drag.minimumX = viewRec.width - livePreview.width + xGap;
                     mapDragArea.drag.maximumX = -xGap;
                     mapDragArea.drag.minimumY = viewRec.height - livePreview.height + yGap;
                     mapDragArea.drag.maximumY = -yGap;
-                    livePreview.x = triggerX;
-                    livePreview.y = triggerY;
+//                    livePreview.x = triggerX;
+//                    livePreview.y = triggerY;
+                    livePreview.x = xGap;
+                    livePreview.y = yGap;
                 } else {
                     mapDragArea.drag.axis = 0
                 }
             }
 
             onXChanged: {
-                //console.log(livePreview.x, view.width/livePreview.width, view.width,livePreview.width)
-                var XGap = livePreview.x / ((rectPreview.width/view.width)*viewRec.width/rectPreview.width)
+                var XGap = livePreview.x / ((rectPreview.width/view.width)*viewRec.width/rectPreview.width);
                 view.x = -XGap;
-                //console.log("new", view.x)
+                currentImgX = -livePreview.x /imgScale;
             }
             onYChanged: {
-                //console.log(livePreview.y)
                 var YGap = livePreview.y / ((rectPreview.height/view.height)*viewRec.height/rectPreview.height)
                 view.y = -YGap;
+                currentImgY = -livePreview.y /imgScale;
             }
 
             MouseArea {
                 id: mapDragArea
                 anchors.fill: parent
+                enabled: bCanDrawZone?false:true
+
 
                 onWheel: {
                     var datla = wheel.angleDelta.y/120;
@@ -174,7 +216,6 @@ Window {
                 drag.maximumY: 0
                 drag.minimumX: 0
                 drag.minimumY: 0
-
             }
         }
 
