@@ -2,6 +2,19 @@ import QtQuick 2.0
 
 Item {
     id: polygon4
+    property int  rectIndex: -1
+
+    function redrawRect() {
+        polygonCanvas.paintType = -1;
+        polygonCanvas.polygonMouseLastPointX = -1;
+        polygonCanvas.polygonMouseLastPointY = -1;
+        polygonSession.needClearRect = true;
+        polygonSession.clearUndefined = true;
+        polygonSession.requestPaint();
+        polygonCanvas.bClear = true;
+        polygonCanvas.bModification = false;
+        polygonCanvas.requestPaint();
+    }
 
     Connections {
         target: ctrl
@@ -21,57 +34,53 @@ Item {
             }
 
             //redraw rectangle
-            polygonCanvas.paintType = -1;
-            polygonCanvas.polygonMouseLastPointX = -1;
-            polygonCanvas.polygonMouseLastPointY = -1;
-            polygonSession.needClearRect = true;
-            polygonSession.clearUndefined = true;
-            polygonSession.requestPaint();
-            polygonCanvas.bClear = true;
-            polygonCanvas.bModification = false;
-            polygonCanvas.requestPaint();
+            redrawRect();
+        }
+    }
+
+    Connections {
+        target: roiDetail
+
+        onRoiSelected: {
+            rectIndex = roiIndex;
+            if (bModify) {
+                polygonCanvas.modifyPolygon(roiIndex);
+                polygonCanvas.requestPaint();
+            }
+        }
+
+        onRoiUnselected: {
+            redrawRect();
         }
     }
 
     Connections {
         target: mainWindow
         onImgScaleChanged: {
-            polygonCanvas.paintType = -1;
-            polygonCanvas.polygonMouseLastPointX = -1;
-            polygonCanvas.polygonMouseLastPointY = -1;
-            polygonSession.needClearRect = true;
-            polygonSession.clearUndefined = true;
-            polygonSession.requestPaint();
-            polygonCanvas.bClear = true;
-            polygonCanvas.bModification = false;
-            polygonCanvas.requestPaint();
+            redrawRect();
+        }
+        onClearROISelected: {
+            ctrl.disablePolygon4(rectIndex);
+            polygonCanvas.polygonPoints[rectIndex*4].x =0;
+            polygonCanvas.polygonPoints[rectIndex*4].y =0;
+            polygonCanvas.polygonPoints[rectIndex*4+1].x =0;
+            polygonCanvas.polygonPoints[rectIndex*4+1].y =0;
+            polygonCanvas.polygonPoints[rectIndex*4+2].x =0;
+            polygonCanvas.polygonPoints[rectIndex*4+2].y =0;
+            polygonCanvas.polygonPoints[rectIndex*4+3].x =0;
+            polygonCanvas.polygonPoints[rectIndex*4+3].y =0;
+            polygonCanvas.bRedrawMask = true;
+            redrawRect();
         }
     }
 
     Connections {
         target: livePreview
-
         onXChanged: {
-            polygonCanvas.paintType = -1;
-            polygonCanvas.polygonMouseLastPointX = -1;
-            polygonCanvas.polygonMouseLastPointY = -1;
-            polygonSession.needClearRect = true;
-            polygonSession.clearUndefined = true;
-            polygonSession.requestPaint();
-            polygonCanvas.bClear = true;
-            polygonCanvas.bModification = false;
-            polygonCanvas.requestPaint();
+            redrawRect();
         }
         onYChanged: {
-            polygonCanvas.paintType = -1;
-            polygonCanvas.polygonMouseLastPointX = -1;
-            polygonCanvas.polygonMouseLastPointY = -1;
-            polygonSession.needClearRect = true;
-            polygonSession.clearUndefined = true;
-            polygonSession.requestPaint();
-            polygonCanvas.bClear = true;
-            polygonCanvas.bModification = false;
-            polygonCanvas.requestPaint();
+            redrawRect();
         }
     }
 
@@ -102,12 +111,18 @@ Item {
             ctx.save(); //與restore相稱，沒加的話scale會累加無法還原
             ctx.scale(imgScale,imgScale);
             ctx.lineWidth = 2/imgScale;
+            var gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop("0", "green");
+            gradient.addColorStop("0.5", "Orange");
+            gradient.addColorStop("0.6", "red");
             var undefinedNumber = (polygonCanvas.polyPointCount%4);
 
             if (needClearRect) {
                 for (var i=0; i<polygonCanvas.polyPointCount-undefinedNumber;i++) {
                     ctx.globalCompositeOperation = "copy";
-                    ctx.strokeStyle = "#ff0000";
+                    // Fill with gradient
+                    ctx.strokeStyle = gradient;
+                    //ctx.strokeStyle = "#ff0000";
 
                     ctx.beginPath();
 
@@ -133,6 +148,10 @@ Item {
                         ctx.font = fontPixelSize + "px 'Calibri light'";
                         ctx.fillText(ctrl.getRectIDMap((Math.floor(i/4))).toString(), (realX1 + realX2)/2 , (realY1 + realY2)/2);
                     }
+                }
+                if (polygonCanvas.bRedrawMask) {
+                    ctrl.updatePolygonINIFile();
+                    polygonCanvas.bRedrawMask = false;
                 }
             }
 
@@ -161,7 +180,10 @@ Item {
             if (polygonCanvas.paintType == 0) {
                 console.log("paint type == 0")
                 ctx.globalCompositeOperation = "copy";
-                ctx.strokeStyle = "#ff0000";
+
+                // Fill with gradient
+                ctx.strokeStyle = gradient;
+                //ctx.strokeStyle = "#ff0000";
                 ctx.beginPath();
                 realX1 = polygonCanvas.polygonPoints[polygonCanvas.polyPointCount-2].x -currentImgX;
                 realY1 = polygonCanvas.polygonPoints[polygonCanvas.polyPointCount-2].y -currentImgY;
@@ -190,24 +212,45 @@ Item {
         property int   limitRx: livePreview.width < width ? livePreview.width : width
         property int   limitRy: livePreview.height < height ? livePreview.height : height
         property bool  bModification: false //modify polygon
+        property int   resizeBoxSize: 5
 
+        property var selectedPolygonPoints: [] //for modification
         property var polygonPoints: [] //array{x,y}
         property int polygonMousePointX: 0
         property int polygonMousePointY: 0
         property int polyPointCount: 0
 
         property int   currentRegionNumber: 0 //rect id
-
         property bool  bClear: false
+
         property int polygonMouseLastPointX: -1
         property int polygonMouseLastPointY: -1
         property int paintType: -1
 
         property bool  bRedrawMask: false
 
+        function modifyPolygon(index) {
+            console.log("modifyPolygon index: "+index);
+            polygonCanvas.bClear = true;
+            polygonCanvas.bModification = true;
+            rectIndex = index;
+            polygonCanvas.selectedPolygonPoints = [];
+            polygonCanvas.selectedPolygonPoints.push({x: polygonCanvas.polygonPoints[rectIndex*4].x, y: polygonCanvas.polygonPoints[rectIndex*4].y});
+            polygonCanvas.selectedPolygonPoints.push({x: polygonCanvas.polygonPoints[rectIndex*4+1].x, y: polygonCanvas.polygonPoints[rectIndex*4+1].y});
+            polygonCanvas.selectedPolygonPoints.push({x: polygonCanvas.polygonPoints[rectIndex*4+2].x, y: polygonCanvas.polygonPoints[rectIndex*4+2].y});
+            polygonCanvas.selectedPolygonPoints.push({x: polygonCanvas.polygonPoints[rectIndex*4+3].x, y: polygonCanvas.polygonPoints[rectIndex*4+3].y});
+        }
+
         onPaint: {
             var ctx = getContext("2d");
-            ctx.strokeStyle = "#ff0000";
+            var gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop("0", "green");
+            gradient.addColorStop("0.5", "Orange");
+            gradient.addColorStop("0.6", "red");
+
+            // Fill with gradient
+            ctx.strokeStyle = gradient;
+            //ctx.strokeStyle = "#ff0000";
             ctx.lineWidth = 1;
             var realX0 = 0;
             var realY0 = 0;
@@ -285,7 +328,7 @@ Item {
                 realX3 = polygonPoints[polygonPoints.length-2].x ;
                 realY3 = polygonPoints[polygonPoints.length-2].y ;
 
-//                roiDetail.addROI({NumberID:ctrl.getRectIDMap(ploygonCanvas.currentRegionNumber), metaName:currentSelectedMeta, paintColor: currentPaintColor, roiInfo:stringInfo, canBeUsed:true});
+                roiDetail.addROI({NumberID:ctrl.getRectIDMap(polygonCanvas.currentRegionNumber)});
 
                 polygonSession.needClearRect = true;
                 polygonSession.clearUndefined = false;
@@ -297,6 +340,35 @@ Item {
 
             }
 
+            if (bModification) {
+                bRedrawMask = true;
+                ctx.globalCompositeOperation = "copy";
+                ctx.lineWidth = 1;
+
+                // Fill with gradient
+                ctx.strokeStyle = gradient;
+                //ctx.fillStyle = "#efff0000";
+                for (var k=0;k<4;k++) {
+                    var pointX0 = (selectedPolygonPoints[k].x-currentImgX) * imgScale;
+                    var pointY0 = (selectedPolygonPoints[k].y-currentImgY) * imgScale;
+                    var pointX1 = (selectedPolygonPoints[(k+1)%4].x-currentImgX) * imgScale;
+                    var pointY1 = (selectedPolygonPoints[(k+1)%4].y-currentImgY) * imgScale;
+                    ctx.beginPath();
+                    ctx.moveTo(pointX0, pointY0);
+                    ctx.lineTo(pointX1, pointY1);
+                    ctx.stroke();
+                }
+
+                // Fill with gradient
+                ctx.strokeStyle = gradient;
+                ctx.fillStyle = "#efffff00";
+                for (var l=0;l<4;l++) {
+                    var pivotX0 = (selectedPolygonPoints[l].x-currentImgX) * imgScale;
+                    var pivotY0 = (selectedPolygonPoints[l].y-currentImgY) * imgScale;
+                    ctx.fillRect(pivotX0-resizeBoxSize, pivotY0-resizeBoxSize, resizeBoxSize*2, resizeBoxSize*2);
+                }
+            }
+
             paintType= -1;
             polygonCanvas.bClear = false;
         }
@@ -306,6 +378,19 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+            property int selectedPivot : -1
+            function determineAdjustPivote(X, Y) {
+                for (var i=0; i<4;i++) {
+                    var x0 = (polygonCanvas.selectedPolygonPoints[i].x-currentImgX) * imgScale;
+                    var y0 = (polygonCanvas.selectedPolygonPoints[i].y-currentImgY) * imgScale;
+
+                    if (X<=x0+polygonCanvas.resizeBoxSize && X>=x0-polygonCanvas.resizeBoxSize && Y<=y0+polygonCanvas.resizeBoxSize && Y>=y0-polygonCanvas.resizeBoxSize) {
+                        return i;
+                    }
+                }
+                return -1;
+            }
 
             onPressed:  {
                 if (!bCanDrawZone)
@@ -329,7 +414,7 @@ Item {
                             if(polygonCanvas.polyPointCount%4 == 0){ //fourth time
                                 // rect id
                                 polygonCanvas.currentRegionNumber = (polygonCanvas.polyPointCount/4) -1;
-                                var targetID = ploygonCanvas.polyPointCount/4;
+                                var targetID = polygonCanvas.polyPointCount/4;
                                 // show text input window
                                 //var targetID  = ctrl.showInputRectNumberDialog(polygonCanvas.polyPointCount/4);
                                 //if (targetID < 0) {
@@ -363,6 +448,21 @@ Item {
                 }
                 else if (mouse.button === Qt.RightButton){
                     console.log("right button")
+                    if (polygonCanvas.bModification) {
+                        for (var k=0;k<4;k++) {
+                            polygonCanvas.polygonPoints[rectIndex*4+k].x =  polygonCanvas.selectedPolygonPoints[k].x;
+                            polygonCanvas.polygonPoints[rectIndex*4+k].y =  polygonCanvas.selectedPolygonPoints[k].y;
+                            ctrl.modifyPolygon4(rectIndex, k, Qt.point(polygonCanvas.selectedPolygonPoints[k].x, polygonCanvas.selectedPolygonPoints[k].y));
+                        }
+
+                        polygonCanvas.bModification = false;
+                        polygonCanvas.bClear = true;
+                        polygonCanvas.requestPaint();
+                        polygonSession.needClearRect = true;
+                        polygonSession.clearUndefined = false;
+                        polygonSession.requestPaint();
+                        roiDetail.cancelROISelected();
+                    }
                 }
 
                 polygonMouseArea.cursorShape = Qt.ArrowCursor;
@@ -390,6 +490,23 @@ Item {
 
                 }
 
+                if (polygonCanvas.bModification) {
+                    if (polygonMouseArea.containsPress) {
+                        if (selectedPivot >=0) {
+                            polygonMouseArea.cursorShape = Qt.SizeAllCursor;
+                            polygonCanvas.selectedPolygonPoints[selectedPivot].x = realX;
+                            polygonCanvas.selectedPolygonPoints[selectedPivot].y = realY;
+                            polygonCanvas.bClear = true;
+                            polygonCanvas.requestPaint();
+                        }
+                    } else {
+                        selectedPivot = determineAdjustPivote(mouse.x, mouse.y);
+                        polygonMouseArea.cursorShape = selectedPivot>=0 ? Qt.SizeAllCursor: Qt.ArrowCursor;
+                    }
+                } else {
+                        polygonMouseArea.cursorShape = Qt.ArrowCursor;
+                        selectedPivot = -1;
+                    }
 
             }
         }

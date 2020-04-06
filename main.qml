@@ -7,11 +7,19 @@ Window {
     width: 800*2
     height: 700
     title: qsTr("Image Scale & Shift")
-    property string yuanGreen: "#98c135"
+    property color  lightBlue:    "#8bc628"
+    property color  darkGray:     "#818183"
+    property color  yuanGreen:    "#98c135"
+    property color  lightGray2:   "#EFF0F4"
+
     property double imgScale: 1
     property bool bCanDrawZone: false
     property var currentImgX: 0
     property var currentImgY: 0
+
+    property string warningCode: ""
+    signal clearROISelected()
+    signal cancelROISelected()
 
     //method 1
     Rectangle{
@@ -73,6 +81,34 @@ Window {
             }
         }
     }
+    //polygon List
+    ROIDetail {
+        id: roiDetail
+        anchors.top: rectAILableing.bottom; anchors.topMargin: 10; anchors.right: parent.right; anchors.rightMargin: 10
+        height: 250; width: 200;
+        enabled: bCanDrawZone
+    }
+    function showWarningWindow(result) {
+        var component = Qt.createComponent("WarningWindow.qml");
+        var window = component.createObject(mainWindow);
+        window.setWarningType(result);
+        window.leftBtnClicked.connect(warningDialogLeft); //Connecting signals to methods and signals
+        window.rightBtnClicked.connect(warningDialogRight); //signal收到直接觸發function
+        window.show();
+    }
+    function warningDialogLeft(){
+        if (warningCode == "ROI_DEL") {
+            console.log("Cancel Delete");
+            cancelROISelected();
+        }
+    }
+
+    function warningDialogRight(){
+        if (warningCode == "ROI_DEL") {
+            console.log("Confrim Delete");
+            clearROISelected();
+        }
+    }
 
     //method 2
     Text {
@@ -103,8 +139,6 @@ Window {
             height: parent.height
             color: "gray"
             opacity: 0.5
-//            border.color: "gainsboro"
-//            border.width: 3
             x:0
             y:0
         }

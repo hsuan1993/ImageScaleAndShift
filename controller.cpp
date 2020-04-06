@@ -62,6 +62,19 @@ int  Controller::getRectNoMap(int rectID)
     return key;
 }
 
+void Controller::disablePolygon4(int rectIndex) {
+    qDebug()<<__func__<<rectIndex;
+    m_listPoint[rectIndex*4] = QPoint(0,0);
+    m_listPoint[rectIndex*4+1] = QPoint(0,0);
+    m_listPoint[rectIndex*4+2] = QPoint(0,0);
+    m_listPoint[rectIndex*4+3] = QPoint(0,0);
+}
+
+void Controller::modifyPolygon4(int rectIndex, int pointIndex, QPoint p)
+{
+    m_listPoint[rectIndex*4+pointIndex] = p;
+}
+
 void Controller::addPolygon4(QPoint p1, QPoint p2, QPoint p3, QPoint p4)
 {
     m_listPoint.append(p1);

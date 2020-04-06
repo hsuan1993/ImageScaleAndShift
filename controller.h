@@ -17,6 +17,8 @@ public:
     Q_INVOKABLE QVariant   getSettingsValue(QString key);
     Q_INVOKABLE void       setSettingsValue(QString key, QVariant value);
     //polygon
+    Q_INVOKABLE void       disablePolygon4(int rectIndex);
+    Q_INVOKABLE void       modifyPolygon4(int rectIndex, int pointIndex, QPoint p);
     Q_INVOKABLE void       addPolygon4(QPoint p1, QPoint p2, QPoint p3, QPoint p4);
     Q_INVOKABLE void       updatePolygonINIFile();
     Q_INVOKABLE void       readPolygonINIFile();
